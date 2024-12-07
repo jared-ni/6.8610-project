@@ -64,13 +64,16 @@ def translate_entities(entities, target_lang):
 # Initialize the Llama API
 llama = LlamaAPI(LLAMA_API_TOKEN)
 
-def llama_translate(prompt, max_tokens, model="llama3.1-70b"):
+def llama_translate(prompt, max_tokens, model="llama3.3-70b"):
     """Function to interact with the Llama API for translation."""
     api_request_json = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": False,
-        "max_token": max_tokens
+        "max_token": max_tokens,
+        "temperature": 0.01,
+        "top_p": 0.5,
+        "frequency_penalty": 0.8
     }
     response = llama.run(api_request_json)
     # Parse and return the generated text
@@ -85,23 +88,22 @@ def calculate_JTC(translations, text, entities):
     n = len(entities)
 
     for entity, translated_entity in entities.items():
-        # Count how many times the entity appears in the text
-        if not translated_entity:
-            continue
+        # Count occurrences of the entity in the original text
         c = text.count(entity)
-        if c == 0:  
-            continue
+        if c == 0 or not translated_entity:
+            continue  # Skip entities that are not present or have no translation
 
         for translation in translations:
-            # Count how many times the translated_entity appears in the translation
+            # Count occurrences of the translated entity in the translation
             t = translation.count(translated_entity)
-            # Add to the score based on the proportion of appearances
-            jtc_score += abs(c - t) / c 
+            # Calculate penalty for mismatched occurrences
+            penalty = abs(c - t) / max(c, 1)  # Avoid division by zero
+            jtc_score += penalty
 
-    # Normalize the score by the number of entities
-    jtc_score = 1 - (jtc_score / n if n > 0 else 0)
+    # Normalize and invert the score
+    normalized_score = jtc_score / max(n, 1)
 
-    return jtc_score
+    return normalized_score
 
 # TODO: calculate Jaccard Similarity
 
@@ -153,5 +155,5 @@ def run_pipeline(target_lang, results_file):
 
 
 if __name__ == "__main__":
-    run_pipeline("Simplified Chinese", "llama_chinese_translations.csv")
+    run_pipeline("Simplified Chinese", "llama_chinese_translations_2.csv")
     run_pipeline("French", "llama_french_translations.csv")
