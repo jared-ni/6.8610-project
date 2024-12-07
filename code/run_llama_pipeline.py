@@ -72,8 +72,8 @@ def llama_translate(prompt, max_tokens, model="llama3.3-70b"):
         "stream": False,
         "max_token": max_tokens,
         "temperature": 0.01,
-        "top_p": 0.5,
-        "frequency_penalty": 0.8
+        "top_p": 0.3,
+        "frequency_penalty": 0.5
     }
     response = llama.run(api_request_json)
     # Parse and return the generated text
@@ -103,7 +103,7 @@ def calculate_JTC(translations, text, entities):
     # Normalize and invert the score
     normalized_score = jtc_score / max(n, 1)
 
-    return normalized_score
+    return 1 - normalized_score
 
 # TODO: calculate Jaccard Similarity
 
@@ -155,5 +155,5 @@ def run_pipeline(target_lang, results_file):
 
 
 if __name__ == "__main__":
-    run_pipeline("Simplified Chinese", "llama_chinese_translations_2.csv")
+    run_pipeline("Simplified Chinese", "llama_chinese_translations.csv")
     run_pipeline("French", "llama_french_translations.csv")
