@@ -173,7 +173,8 @@ def run_pipeline(target_lang, dataset_index=0, results_file="results.csv"):
                                  regular_jaccard_score, leap_jaccard_score,
                                  regular_chrf, leap_chrf])
             
-
-run_pipeline(target_lang="Simplified Chinese", 
-             dataset_index=0, # 0 is Law, 1 is Medical
-             results_file="results.csv")
+for target_lang in ["Simplified Chinese", "French"]:
+    for dataset_index in [0, 1]:
+        run_pipeline(target_lang=target_lang,
+                    dataset_index=dataset_index, # 0 is Law, 1 is Medical
+                    results_file=f"{target_lang}_{dataset_index}_results.csv")
