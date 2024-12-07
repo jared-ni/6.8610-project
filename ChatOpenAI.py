@@ -7,6 +7,8 @@ from deep_translator import GoogleTranslator
 from datasets import load_dataset
 import pandas as pd
 import csv
+from itertools import combinations
+import jieba
 
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -47,25 +49,50 @@ def load_all_datasets():
     medical_dataset = load_medical_dataset()
     return [law_dataset, medical_dataset]
 
+# Calculate JTC score
 def calculate_JTC(translations, text, entities):
     jtc_score = 0
     n = len(entities)
-    for entity, translated_entity in entities.items():
-        if translated_entity is None:
-                continue
-        # Count how many times the entity appears in the text
-        c = text.count(entity)
-        if c == 0:
-            continue
-        for translation in translations:
-            # Count how many times the translated_entity appears in the translation
-            t = translation.count(translated_entity)
-            # Add to the score based on the proportion of appearances
-            jtc_score += abs(c - t) / c
-    # Normalize the score by the number of entities
-    jtc_score = 1 - (jtc_score / n if n > 0 else 0)
-    return jtc_score
+    entity_counts = 0
 
+    for entity, translated_entity in entities.items():
+        # Count occurrences of the entity in the original text
+        c = text.count(entity)
+        entity_counts += c
+        if c == 0 or not translated_entity:
+            continue  # Skip entities that are not present or have no translation
+        jargon_inconsistency = K_HYPERPARAMETER * c
+
+        for translation in translations:
+            # Count occurrences of the translated entity in the translation
+            t = translation.count(translated_entity)
+            # Calculate penalty for mismatched occurrences
+            jargon_inconsistency -= t
+        
+        # Update the JTC score
+        jtc_score += jargon_inconsistency
+
+    # Normalize and invert the score
+    normalized_score = jtc_score / max(K_HYPERPARAMETER * entity_counts, 1)
+    return 1 - normalized_score
+
+# calculates the Jaccard similarity between the k translations
+def calculate_jaccard(translations, target_lang):
+    jaccard_scores = []
+    if target_lang == "Simplified Chinese":
+        translations = [set(jieba.lcut(translation)) for translation in translations]
+    else:
+        translations = [set(translation.split()) for translation in translations]
+    print("translations:", translations)
+    for t1, t2 in combinations(translations, 2):
+        # Calculate Jaccard similarity for the pair
+        intersection = len(t1.intersection(t2))
+        union = len(t1.union(t2))
+        jaccard_score = intersection / union if union > 0 else 0
+        jaccard_scores.append(jaccard_score)
+    print("Jaccard Scores:", jaccard_scores)
+    # Return the average Jaccard similarity
+    return sum(jaccard_scores) / len(jaccard_scores) if jaccard_scores else 0
 
 # Initialize the models using GPT-4o-mini and spacy
 llm_model = ChatOpenAI(model="gpt-4o-mini", openai_api_key=openai_api_key)
@@ -94,7 +121,7 @@ def run_pipeline(target_lang, results_file):
 
             # regular text translation
             regular_translations = []
-            for k in range(1):
+            for k in range(K_HYPERPARAMETER):
                 prompt = f"Translate the following text to {target_lang}: {text}"
                 response = llm_model.invoke(prompt)
                 print("\nGenerated Response:", response.content)
@@ -102,20 +129,26 @@ def run_pipeline(target_lang, results_file):
             
             # LEAP text translation
             leap_translations = []
-            for k in range(1):
+            for k in range(K_HYPERPARAMETER):
                 prompt = f"Translate the following text to {target_lang}\
                     using these mappings {str(named_entities_translations)}: {text}"
                 response = llm_model.invoke(prompt)
                 print("\nGenerated Response (LEAP):", response.content)
                 leap_translations.append(response.content)
             
+            # JTC Metric
             regular_jtc_score = calculate_JTC(regular_translations, text,
                                               named_entity_mapping)
             leap_jtc_score = calculate_JTC(leap_translations, text, 
                                            named_entity_mapping)
+        
+            # Jaccard Similarities
+            regular_jaccard_score = calculate_jaccard(regular_translations, target_lang)
+            leap_jaccard_score = calculate_jaccard(leap_translations, target_lang)
             
             with open(results_file, mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
-                writer.writerow([regular_jtc_score, leap_jtc_score])
+                writer.writerow([regular_jtc_score, leap_jtc_score, regular_jaccard_score, leap_jaccard_score])
+            
 
 run_pipeline("Simplified Chinese", "results.csv")
