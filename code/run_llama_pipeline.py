@@ -1,11 +1,19 @@
+import os
 import csv
 from datasets import load_dataset
 import pandas as pd
 import spacy
 from deep_translator import GoogleTranslator
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
 from tqdm import tqdm
+from llamaapi import LlamaAPI
+from dotenv import load_dotenv
+
+
+# Load environment variables from .env
+load_dotenv()
+
+# Access the Llama API token
+LLAMA_API_TOKEN = os.getenv("LLAMA_API_TOKEN")
 
 # Flags for which LLMs to use
 USE_LLAMA = True
@@ -40,18 +48,36 @@ def load_all_datasets():
     return [law_dataset, medical_dataset]
 
 # Load SpaCy model
-def load_spacy_model(model_path='en_core_sci_sm'):
+def load_spacy_model(model_path='../en_core_sci_sm-0.5.4/en_core_sci_sm/en_core_sci_sm-0.5.4'):
     return spacy.load(model_path)
 
 # Extract entities from text
 def extract_entities(nlp, text):
     doc = nlp(text)
-    return [ent.text for ent in doc.ents]
+    return list(set([ent.text for ent in doc.ents]))
 
 # Translate entities to a target language
 def translate_entities(entities, target_lang):
     translations = [GoogleTranslator(source='auto', target=target_lang).translate(entity) for entity in entities]
     return translations
+
+# Initialize the Llama API
+llama = LlamaAPI(LLAMA_API_TOKEN)
+
+def llama_translate(prompt, max_tokens, model="llama3.1-70b"):
+    """Function to interact with the Llama API for translation."""
+    api_request_json = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+        "max_token": max_tokens
+    }
+    response = llama.run(api_request_json)
+    # Parse and return the generated text
+    result = response.json()
+    if "choices" in result and len(result["choices"]) > 0:
+        return result["choices"][0]["message"]["content"].strip()
+    return ""
 
 # Calculate JTC score
 def calculate_JTC(translations, text, entities):
@@ -90,11 +116,6 @@ def run_pipeline(target_lang, results_file):
     # Google Translate abbreviations
     lang_abbrs = {"Simplified Chinese": "zh-CN", "French": "fr"}
 
-    # Load LLMs
-    # llama_tokenizer, llama_model = load_llama_model() if USE_LLAMA else (None, None)
-    # mistral_tokenizer, mistral_model = load_mistral_model() if USE_MISTRAL else (None, None)
-    # falcon_tokenizer, falcon_model = load_falcon_model() if USE_FALCON else (None, None)
-
     for dataname, dataset in zip(datanames, datasets):
         progress_bar = tqdm(dataset[:10], desc=f"Processing {dataname}", unit="text")
         for text in progress_bar:
@@ -105,10 +126,8 @@ def run_pipeline(target_lang, results_file):
             regular_translations = []
             for _ in range(K_HYPERPARAMETER):
                 prompt = f"Translate the following text to {target_lang}: {text}"
-                max_length = len(prompt) * MAX_LENGTH_MULTIPLIER
-                regular_translations.append(
-                    llama_generate_text(tokenizer, model, prompt, max_length)
-                    )
+                max_length = len(text) * MAX_LENGTH_MULTIPLIER
+                regular_translations.append(llama_translate(prompt, max_length))
 
             # LEAP translations
             leap_translations = []
@@ -116,10 +135,8 @@ def run_pipeline(target_lang, results_file):
             entity_mapping = {e: t for e, t in zip(entities, translated_entities)}
             for _ in range(K_HYPERPARAMETER):
                 prompt = f"Translate the following text to {target_lang} using these mappings {str(entities)}: {text}"
-                max_length = len(prompt) * MAX_LENGTH_MULTIPLIER
-                leap_translations.append(
-                    llama_generate_text(tokenizer, model, prompt, max_length)
-                )
+                max_length = len(text) * MAX_LENGTH_MULTIPLIER
+                leap_translations.append(llama_translate(prompt, max_length))
 
             # Calculate JTC scores
             print("TEXT: ", text)
