@@ -5,7 +5,7 @@ import spacy
 from deep_translator import GoogleTranslator
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
-import tqdm
+from tqdm import tqdm
 
 # Flags for which LLMs to use
 USE_LLAMA = True
