@@ -86,6 +86,8 @@ def calculate_JTC(translations, text, entities):
 
     for entity, translated_entity in entities.items():
         # Count how many times the entity appears in the text
+        if not translated_entity:
+            continue
         c = text.count(entity)
         if c == 0:  
             continue
@@ -119,7 +121,7 @@ def run_pipeline(target_lang, results_file):
     for dataname, dataset in zip(datanames, datasets):
         progress_bar = tqdm(dataset[:10], desc=f"Processing {dataname}", unit="text")
         for text in progress_bar:
-            text = " ".join(text.split()[:50])  # Truncate to the first 30 words
+            text = " ".join(text.split()[:50])  # Truncate to the first 50 words
             entities = extract_entities(nlp, text)
 
             # Regular translations
