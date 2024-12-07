@@ -113,13 +113,14 @@ spacy_model = spacy.load('en_core_sci_sm-0.5.4/en_core_sci_sm/en_core_sci_sm-0.5
 K_HYPERPARAMETER = 3
 
 
-def run_pipeline(target_lang, results_file):
+def run_pipeline(target_lang, dataset_index=0, results_file="results.csv"):
     datasets = load_all_datasets()
     # Google Translate abbreviations
     lang_abbrs = {"Simplified Chinese": "zh-CN", "French": "fr"}
-
+    
+    cur_dataset = [datasets[dataset_index]]
     # law[0] and medical[1] datasets
-    for dataset in datasets:
+    for dataset in cur_dataset:
         for i, text in enumerate(dataset[:10]):
             text = " ".join(text.split()[:50])  # Truncate to the first 30 words
             print(f"Text {i+1}: {text}")
@@ -173,4 +174,6 @@ def run_pipeline(target_lang, results_file):
                                  regular_chrf, leap_chrf])
             
 
-run_pipeline("Simplified Chinese", "results.csv")
+run_pipeline(target_lang="Simplified Chinese", 
+             dataset_index=0, # 0 is Law, 1 is Medical
+             results_file="results.csv")
