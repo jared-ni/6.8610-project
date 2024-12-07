@@ -5,6 +5,7 @@ import spacy
 from deep_translator import GoogleTranslator
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
+import tqdm
 
 # Flags for which LLMs to use
 USE_LLAMA = True
@@ -74,9 +75,14 @@ def calculate_JTC(translations, text, entities):
 
     return jtc_score
 
+# TODO: calculate Jaccard Similarity
+
+# TODO: calculate chrf++ score
+
 def run_pipeline(target_lang, results_file):
     # Load datasets
     datasets = load_all_datasets()
+    datanames = ["Law", "Medical"]
 
     # Load NLP model
     nlp = load_spacy_model()
@@ -89,51 +95,44 @@ def run_pipeline(target_lang, results_file):
     # mistral_tokenizer, mistral_model = load_mistral_model() if USE_MISTRAL else (None, None)
     # falcon_tokenizer, falcon_model = load_falcon_model() if USE_FALCON else (None, None)
 
-    for dataset in datasets:
-        for i, text in enumerate(dataset[:10]):  # Iterate through the first 10 entries for testing
-            text = " ".join(text.split()[:30])  # Truncate to the first 30 words
+    for dataname, dataset in zip(datanames, datasets):
+        progress_bar = tqdm(dataset[:10], desc=f"Processing {dataname}", unit="text")
+        for text in progress_bar:
+            text = " ".join(text.split()[:50])  # Truncate to the first 30 words
             entities = extract_entities(nlp, text)
 
-            for llm_name, tokenizer, model, is_active in [
-                ("Llama", llama_tokenizer, llama_model, USE_LLAMA),
-                ("Mistral", mistral_tokenizer, mistral_model, USE_MISTRAL),
-                ("Falcon", falcon_tokenizer, falcon_model, USE_FALCON),
-            ]:
-                if not is_active:
-                    continue
-
-                # Regular translations
-                regular_translations = []
-                for k in range(K_HYPERPARAMETER):
-                    prompt = f"Translate the following text to {target_lang}: {text}"
-                    max_length = len(prompt) * MAX_LENGTH_MULTIPLIER
-                    regular_translations.append(
-                        llama_generate_text(tokenizer, model, prompt, max_length)
-                        )
-
-                # LEAP translations
-                leap_translations = []
-                translated_entities = translate_entities(entities, lang_abbrs[target_lang])
-                entity_mapping = {e: t for e, t in zip(entities, translated_entities)}
-                for k in range(K_HYPERPARAMETER):
-                    prompt = f"Translate the following text to {target_lang} using these mappings {str(entities)}: {text}"
-                    max_length = len(prompt) * MAX_LENGTH_MULTIPLIER
-                    leap_translations.append(
-                        llama_generate_text(tokenizer, model, prompt, max_length)
+            # Regular translations
+            regular_translations = []
+            for _ in range(K_HYPERPARAMETER):
+                prompt = f"Translate the following text to {target_lang}: {text}"
+                max_length = len(prompt) * MAX_LENGTH_MULTIPLIER
+                regular_translations.append(
+                    llama_generate_text(tokenizer, model, prompt, max_length)
                     )
 
-                # Calculate JTC scores
-                print("TEXT: ", text)
-                print("ENTITY MAPPING: ", entity_mapping)
-                print("REGULAR TRANSLATIONS: ", regular_translations)
-                print("LEAP TRANSLATIONS: ", leap_translations)
-                regular_jtc_score = calculate_JTC(regular_translations, text, entity_mapping)
-                leap_jtc_score = calculate_JTC(leap_translations, text, entity_mapping)
-                with open(results_file, mode='a', newline='', encoding='utf-8') as file:
-                  writer = csv.writer(file)
-                  writer.writerow([regular_jtc_score, leap_jtc_score])
+            # LEAP translations
+            leap_translations = []
+            translated_entities = translate_entities(entities, lang_abbrs[target_lang])
+            entity_mapping = {e: t for e, t in zip(entities, translated_entities)}
+            for _ in range(K_HYPERPARAMETER):
+                prompt = f"Translate the following text to {target_lang} using these mappings {str(entities)}: {text}"
+                max_length = len(prompt) * MAX_LENGTH_MULTIPLIER
+                leap_translations.append(
+                    llama_generate_text(tokenizer, model, prompt, max_length)
+                )
+
+            # Calculate JTC scores
+            print("TEXT: ", text)
+            print("ENTITY MAPPING: ", entity_mapping)
+            print("REGULAR TRANSLATIONS: ", regular_translations)
+            print("LEAP TRANSLATIONS: ", leap_translations)
+            regular_jtc_score = calculate_JTC(regular_translations, text, entity_mapping)
+            leap_jtc_score = calculate_JTC(leap_translations, text, entity_mapping)
+            with open(results_file, mode='a', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                writer.writerow([dataname, regular_jtc_score, leap_jtc_score])
 
 
 if __name__ == "__main__":
-    run_pipeline("Simplified Chinese", "chinese_translations.csv")
-    run_pipeline("French", "french_translations.csv")
+    run_pipeline("Simplified Chinese", "llama_chinese_translations.csv")
+    run_pipeline("French", "llama_french_translations.csv")
