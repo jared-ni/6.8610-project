@@ -9,6 +9,7 @@ import pandas as pd
 import csv
 from itertools import combinations
 import jieba
+import sacrebleu
 
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -94,6 +95,18 @@ def calculate_jaccard(translations, target_lang):
     # Return the average Jaccard similarity
     return sum(jaccard_scores) / len(jaccard_scores) if jaccard_scores else 0
 
+# chrF++ ⇒ google translate serves as a reference ground truth
+def calculate_chrf(ground_truth_translation, translations, n_value=6):
+    ground_truth_translations = [ground_truth_translation] * len(translations)
+    # sacrebleu.corpus_chrf calculates chrF++ directly
+    chrf = sacrebleu.corpus_chrf(
+        translations,  # List of translated texts
+        ground_truth_translations,  # List of reference texts
+        beta=2  # Default beta for F-score weighting
+    )
+    return chrf.score
+
+
 # Initialize the models using GPT-4o-mini and spacy
 llm_model = ChatOpenAI(model="gpt-4o-mini", openai_api_key=openai_api_key)
 spacy_model = spacy.load('en_core_sci_sm-0.5.4/en_core_sci_sm/en_core_sci_sm-0.5.4')
@@ -117,12 +130,14 @@ def run_pipeline(target_lang, results_file):
             print("Translations:", named_entities_translations)
             named_entity_mapping = {e: t for e, t in zip(named_entities, 
                                                          named_entities_translations)}
+            ground_truth_translation = GoogleTranslator(source='auto', target=lang_abbrs[target_lang]).translate(text)
 
 
             # regular text translation
             regular_translations = []
             for k in range(K_HYPERPARAMETER):
-                prompt = f"Translate the following text to {target_lang}: {text}"
+                prompt = f"Translate the following text to {target_lang}: {text}.\
+                           Please return only the translation and nothing else."
                 response = llm_model.invoke(prompt)
                 print("\nGenerated Response:", response.content)
                 regular_translations.append(response.content)
@@ -131,7 +146,8 @@ def run_pipeline(target_lang, results_file):
             leap_translations = []
             for k in range(K_HYPERPARAMETER):
                 prompt = f"Translate the following text to {target_lang}\
-                    using these mappings {str(named_entities_translations)}: {text}"
+                    using these mappings {str(named_entities_translations)}: {text}.\
+                    Please return only the translation and nothing else."
                 response = llm_model.invoke(prompt)
                 print("\nGenerated Response (LEAP):", response.content)
                 leap_translations.append(response.content)
@@ -146,9 +162,15 @@ def run_pipeline(target_lang, results_file):
             regular_jaccard_score = calculate_jaccard(regular_translations, target_lang)
             leap_jaccard_score = calculate_jaccard(leap_translations, target_lang)
             
+            # chrF++ Metric
+            regular_chrf = calculate_chrf(ground_truth_translation, regular_translations)
+            leap_chrf = calculate_chrf(ground_truth_translation, leap_translations)
+
             with open(results_file, mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
-                writer.writerow([regular_jtc_score, leap_jtc_score, regular_jaccard_score, leap_jaccard_score])
+                writer.writerow([regular_jtc_score, leap_jtc_score, 
+                                 regular_jaccard_score, leap_jaccard_score,
+                                 regular_chrf, leap_chrf])
             
 
 run_pipeline("Simplified Chinese", "results.csv")
