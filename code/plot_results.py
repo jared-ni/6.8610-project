@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def plot_results(file1, file2, file3):
+def plot_results(file1, file2, file3, dataset, lang):
     # Load the results files into dataframes
     df1 = pd.read_csv(file1)
     df2 = pd.read_csv(file2)
@@ -9,7 +9,7 @@ def plot_results(file1, file2, file3):
 
     # Combine all dataframes into a list for easier processing
     dataframes = [df1, df2, df3]
-    models = ['Model 1', 'Model 2', 'Model 3']
+    models = ['Claude', 'GPT4o', 'Mistral']
 
     # Initialize lists to store the averages for each metric
     metrics = {
@@ -38,14 +38,16 @@ def plot_results(file1, file2, file3):
         # Set plot details
         ax.set_xlabel('Models')
         ax.set_ylabel(f'Average {metric_name}')
-        ax.set_title(f'Average {metric_name} Comparison Across Models')
+        ax.set_title(f'Average {metric_name} Comparison Across Models ({dataset} - {lang})')
         ax.set_xticks([p + width/2 for p in x])
         ax.set_xticklabels(models)
         ax.legend()
 
         # Display the plot
         plt.tight_layout()
-        plt.show()
+        plt.savefig(f'{metric_name}_{dataset}_{lang}.png')
 
-# Example usage
-plot_results('../results/claude_French_0_results.csv', '../results/gpt4o_French_0_results.csv', '../results/mistral_French_0_results.csv')
+plot_results('../results/claude_French_0_results.csv', '../results/gpt4o_French_0_results.csv', '../results/mistral_French_0_results.csv', 'Law', 'French')
+plot_results('../results/claude_French_1_results.csv', '../results/gpt4o_French_1_results.csv', '../results/mistral_French_1_results.csv', 'Medical', 'French')
+plot_results('../results/claude_Simplified_Chinese_0_results.csv', '../results/gpt4o_Simplified_Chinese_0_results.csv', '../results/mistral_Simplified_Chinese_0_results.csv', 'Law', 'Simplified Chinese')
+plot_results('../results/claude_Simplified_Chinese_1_results.csv', '../results/gpt4o_Simplified_Chinese_1_results.csv', '../results/mistral_Simplified_Chinese_1_results.csv', 'Medical', 'Simplified Chinese')
