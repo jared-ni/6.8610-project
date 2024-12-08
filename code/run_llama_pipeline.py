@@ -7,6 +7,9 @@ from deep_translator import GoogleTranslator
 from tqdm import tqdm
 from llamaapi import LlamaAPI
 from dotenv import load_dotenv
+from itertools import combinations
+import jieba
+import sacrebleu
 
 
 # Load environment variables from .env
@@ -64,15 +67,16 @@ def translate_entities(entities, target_lang):
 # Initialize the Llama API
 llama = LlamaAPI(LLAMA_API_TOKEN)
 
-def llama_translate(prompt, max_tokens, model="llama3.3-70b"):
+# llama3.3-70b
+def llama_translate(prompt, max_tokens, model="mixtral-8x7b-instruct"):
     """Function to interact with the Llama API for translation."""
     api_request_json = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": False,
         "max_token": max_tokens,
-        "temperature": 0.01,
-        "top_p": 0.3,
+        "temperature": 0.05,
+        "top_p": 0.5,
         "frequency_penalty": 0.5
     }
     response = llama.run(api_request_json)
@@ -85,29 +89,55 @@ def llama_translate(prompt, max_tokens, model="llama3.3-70b"):
 # Calculate JTC score
 def calculate_JTC(translations, text, entities):
     jtc_score = 0
-    n = len(entities)
+    entity_counts = 0
 
     for entity, translated_entity in entities.items():
         # Count occurrences of the entity in the original text
         c = text.count(entity)
+        entity_counts += c
         if c == 0 or not translated_entity:
             continue  # Skip entities that are not present or have no translation
+        jargon_inconsistency = K_HYPERPARAMETER * c
 
         for translation in translations:
             # Count occurrences of the translated entity in the translation
             t = translation.count(translated_entity)
             # Calculate penalty for mismatched occurrences
-            penalty = abs(c - t) / max(c, 1)  # Avoid division by zero
-            jtc_score += penalty
+            jargon_inconsistency -= t
+        
+        # Update the JTC score
+        jtc_score += jargon_inconsistency
 
     # Normalize and invert the score
-    normalized_score = jtc_score / max(n, 1)
-
+    normalized_score = jtc_score / max(K_HYPERPARAMETER * entity_counts, 1)
     return 1 - normalized_score
 
-# TODO: calculate Jaccard Similarity
+# calculates the Jaccard similarity between the k translations
+def calculate_jaccard(translations, target_lang):
+    jaccard_scores = []
+    if target_lang == "Simplified Chinese":
+        translations = [set(jieba.lcut(translation)) for translation in translations]
+    else:
+        translations = [set(translation.split()) for translation in translations]
+    for t1, t2 in combinations(translations, 2):
+        # Calculate Jaccard similarity for the pair
+        intersection = len(t1.intersection(t2))
+        union = len(t1.union(t2))
+        jaccard_score = intersection / union if union > 0 else 0
+        jaccard_scores.append(jaccard_score)
+    # Return the average Jaccard similarity
+    return sum(jaccard_scores) / len(jaccard_scores) if jaccard_scores else 0
 
-# TODO: calculate chrf++ score
+# chrF++ ⇒ google translate serves as a reference ground truth
+def calculate_chrf(ground_truth_translation, translations, n_value=6):
+    ground_truth_translations = [ground_truth_translation] * len(translations)
+    # sacrebleu.corpus_chrf calculates chrF++ directly
+    chrf = sacrebleu.corpus_chrf(
+        translations,  # List of translated texts
+        ground_truth_translations,  # List of reference texts
+        beta=2  # Default beta for F-score weighting
+    )
+    return chrf.score
 
 def run_pipeline(target_lang, results_file):
     # Load datasets
@@ -121,7 +151,7 @@ def run_pipeline(target_lang, results_file):
     lang_abbrs = {"Simplified Chinese": "zh-CN", "French": "fr"}
 
     for dataname, dataset in zip(datanames, datasets):
-        progress_bar = tqdm(dataset[:10], desc=f"Processing {dataname}", unit="text")
+        progress_bar = tqdm(dataset[:5], desc=f"Processing {dataname}", unit="text")
         for text in progress_bar:
             text = " ".join(text.split()[:50])  # Truncate to the first 50 words
             entities = extract_entities(nlp, text)
@@ -129,7 +159,7 @@ def run_pipeline(target_lang, results_file):
             # Regular translations
             regular_translations = []
             for _ in range(K_HYPERPARAMETER):
-                prompt = f"Translate the following text to {target_lang}: {text}"
+                prompt = f"Please return only the answer and nothing else. Translate the following text to {target_lang}: {text}"
                 max_length = len(text) * MAX_LENGTH_MULTIPLIER
                 regular_translations.append(llama_translate(prompt, max_length))
 
@@ -137,23 +167,33 @@ def run_pipeline(target_lang, results_file):
             leap_translations = []
             translated_entities = translate_entities(entities, lang_abbrs[target_lang])
             entity_mapping = {e: t for e, t in zip(entities, translated_entities)}
+            ground_truth_translation = GoogleTranslator(source='auto', target=lang_abbrs[target_lang]).translate(text)
             for _ in range(K_HYPERPARAMETER):
-                prompt = f"Translate the following text to {target_lang} using these mappings {str(entities)}: {text}"
+                prompt = f"Please return only the answer and nothing else. Translate the following text to {target_lang} using these mappings {str(entities)}: {text}"
                 max_length = len(text) * MAX_LENGTH_MULTIPLIER
                 leap_translations.append(llama_translate(prompt, max_length))
 
-            # Calculate JTC scores
             print("TEXT: ", text)
             print("ENTITY MAPPING: ", entity_mapping)
             print("REGULAR TRANSLATIONS: ", regular_translations)
             print("LEAP TRANSLATIONS: ", leap_translations)
+
+            # JTC scores
             regular_jtc_score = calculate_JTC(regular_translations, text, entity_mapping)
             leap_jtc_score = calculate_JTC(leap_translations, text, entity_mapping)
+
+            # Jaccard Similarities
+            regular_jaccard_score = calculate_jaccard(regular_translations, target_lang)
+            leap_jaccard_score = calculate_jaccard(leap_translations, target_lang)
+            
+            # chrF++ Metric
+            regular_chrf = calculate_chrf(ground_truth_translation, regular_translations)
+            leap_chrf = calculate_chrf(ground_truth_translation, leap_translations)
             with open(results_file, mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
-                writer.writerow([dataname, regular_jtc_score, leap_jtc_score])
+                writer.writerow([dataname, regular_jtc_score, leap_jtc_score, regular_jaccard_score, leap_jaccard_score, regular_chrf, leap_chrf])
 
 
 if __name__ == "__main__":
-    run_pipeline("Simplified Chinese", "llama_chinese_translations.csv")
-    run_pipeline("French", "llama_french_translations.csv")
+    run_pipeline("Simplified Chinese", "0.05_0.5_0.5_mistral_chinese_translations.csv")
+    run_pipeline("French", "0.05_0.5_0.5_new_mistral_french_translations.csv")
