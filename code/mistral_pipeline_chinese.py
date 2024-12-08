@@ -134,7 +134,7 @@ def calculate_chrf(ground_truth_translation, translations, n_value=6):
     )
     return chrf.score
 
-def run_pipeline(target_lang, results_file):
+def run_pipeline(target_lang, dataset_index, results_file):
     # Load datasets
     datasets = load_all_datasets()
 
@@ -146,7 +146,7 @@ def run_pipeline(target_lang, results_file):
 
     cur_dataset = [datasets[dataset_index]]
     for dataset in cur_dataset:
-        progress_bar = tqdm(dataset[5:11], desc=f"Processing {dataset_index}", unit="text")
+        progress_bar = tqdm(dataset[:500], desc=f"Processing {dataset_index}", unit="text")
         for text in progress_bar:
             text = " ".join(text.split()[:50])  # Truncate to the first 50 words
             entities = extract_entities(nlp, text)
@@ -185,7 +185,7 @@ def run_pipeline(target_lang, results_file):
 
 
 if __name__ == "__main__":
-    for target_lang in ["Simplified Chinese", "French"]:
+    for target_lang in ["Simplified Chinese"]:
         for dataset_index in [0, 1]:
             run_pipeline(target_lang=target_lang,
                         dataset_index=dataset_index, # 0 is Law, 1 is Medical
