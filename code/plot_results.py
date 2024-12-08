@@ -75,7 +75,7 @@ def plot_histogram(csv_file, model, lang, dataset):
 # plot_bars('../results/claude_French_1_results.csv', '../results/gpt4o_French_1_results.csv', '../results/mistral_French_1_results.csv', 'Medical', 'French')
 # plot_bars('../results/claude_Simplified_Chinese_0_results.csv', '../results/gpt4o_Simplified_Chinese_0_results.csv', '../results/mistral_Simplified_Chinese_0_results.csv', 'Law', 'Simplified Chinese')
 # plot_bars('../results/claude_Simplified_Chinese_1_results.csv', '../results/gpt4o_Simplified_Chinese_1_results.csv', '../results/mistral_Simplified_Chinese_1_results.csv', 'Medical', 'Simplified Chinese')
-plot_histogram('../results/claude_French_0_results.csv', 'Claude', 'French', 'Law')
+# plot_histogram('../results/claude_French_0_results.csv', 'Claude', 'French', 'Law')
 # plot_histogram('../results/claude_French_1_results.csv', 'Claude', 'French', 'Medical')
 # plot_histogram('../results/gpt4o_French_0_results.csv', 'GPT4o', 'French', 'Law')
 # plot_histogram('../results/gpt4o_French_1_results.csv', 'GPT4o', 'French', 'Medical')
