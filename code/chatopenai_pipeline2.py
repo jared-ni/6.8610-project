@@ -120,56 +120,58 @@ def run_pipeline(target_lang, dataset_index=0, results_file="results.csv"):
     cur_dataset = [datasets[dataset_index]]
     # law[0] and medical[1] datasets
     for dataset in cur_dataset:
-        progress_bar = tqdm(dataset[:500], desc=f"Processing {dataset_index}", unit="text")
+        progress_bar = tqdm(dataset[442:500], desc=f"Processing {dataset_index}", unit="text")
         for text in progress_bar:
-            text = " ".join(text.split()[:50])  # Truncate to the first 30 words
-            named_entities = list(set(extract_entities(spacy_model, text)))
-            # Translate named entities to the target language
-            named_entities_translations = translate_entities(named_entities, lang_abbrs[target_lang])
-            named_entity_mapping = {e: t for e, t in zip(named_entities, 
-                                                         named_entities_translations)}
-            ground_truth_translation = GoogleTranslator(source='auto', target=lang_abbrs[target_lang]).translate(text)
+            try:
+                text = " ".join(text.split()[:50])  # Truncate to the first 30 words
+                named_entities = list(set(extract_entities(spacy_model, text)))
+                # Translate named entities to the target language
+                named_entities_translations = translate_entities(named_entities, lang_abbrs[target_lang])
+                named_entity_mapping = {e: t for e, t in zip(named_entities, 
+                                                            named_entities_translations)}
+                ground_truth_translation = GoogleTranslator(source='auto', target=lang_abbrs[target_lang]).translate(text)
 
 
-            # regular text translation
-            regular_translations = []
-            for k in range(K_HYPERPARAMETER):
-                prompt = f"Please return only the answer and nothing else.\
-                           Translate the following text to {target_lang}: {text}."
-                response = llm_model.invoke(prompt)
-                regular_translations.append(response.content)
+                # regular text translation
+                regular_translations = []
+                for k in range(K_HYPERPARAMETER):
+                    prompt = f"Please return only the answer and nothing else.\
+                            Translate the following text to {target_lang}: {text}."
+                    response = llm_model.invoke(prompt)
+                    regular_translations.append(response.content)
+                
+                # LEAP text translation
+                leap_translations = []
+                for k in range(K_HYPERPARAMETER):
+                    prompt = f"Please return only the answer and nothing else.\
+                        Translate the following text to {target_lang}\
+                        using these mappings {str(named_entities_translations)}: {text}."
+                    response = llm_model.invoke(prompt)
+                    leap_translations.append(response.content)
+                
+                # JTC Metric
+                regular_jtc_score = calculate_JTC(regular_translations, text,
+                                                named_entity_mapping)
+                leap_jtc_score = calculate_JTC(leap_translations, text, 
+                                            named_entity_mapping)
             
-            # LEAP text translation
-            leap_translations = []
-            for k in range(K_HYPERPARAMETER):
-                prompt = f"Please return only the answer and nothing else.\
-                    Translate the following text to {target_lang}\
-                    using these mappings {str(named_entities_translations)}: {text}."
-                response = llm_model.invoke(prompt)
-                leap_translations.append(response.content)
-            
-            # JTC Metric
-            regular_jtc_score = calculate_JTC(regular_translations, text,
-                                              named_entity_mapping)
-            leap_jtc_score = calculate_JTC(leap_translations, text, 
-                                           named_entity_mapping)
-        
-            # Jaccard Similarities
-            regular_jaccard_score = calculate_jaccard(regular_translations, target_lang)
-            leap_jaccard_score = calculate_jaccard(leap_translations, target_lang)
-            
-            # chrF++ Metric
-            regular_chrf = calculate_chrf(ground_truth_translation, regular_translations)
-            leap_chrf = calculate_chrf(ground_truth_translation, leap_translations)
+                # Jaccard Similarities
+                regular_jaccard_score = calculate_jaccard(regular_translations, target_lang)
+                leap_jaccard_score = calculate_jaccard(leap_translations, target_lang)
+                
+                # chrF++ Metric
+                regular_chrf = calculate_chrf(ground_truth_translation, regular_translations)
+                leap_chrf = calculate_chrf(ground_truth_translation, leap_translations)
 
-            with open(results_file, mode='a', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                writer.writerow([regular_jtc_score, leap_jtc_score, 
-                                 regular_jaccard_score, leap_jaccard_score,
-                                 regular_chrf, leap_chrf])
-            
+                with open(results_file, mode='a', newline='', encoding='utf-8') as file:
+                    writer = csv.writer(file)
+                    writer.writerow([regular_jtc_score, leap_jtc_score, 
+                                    regular_jaccard_score, leap_jaccard_score,
+                                    regular_chrf, leap_chrf])
+            except:
+                continue
 for target_lang in ["French"]:
-    for dataset_index in [0, 1]:
+    for dataset_index in [1]:
         run_pipeline(target_lang=target_lang,
                     dataset_index=dataset_index, # 0 is Law, 1 is Medical
                     results_file=f"gpt4o_{target_lang}_{dataset_index}_results.csv")
