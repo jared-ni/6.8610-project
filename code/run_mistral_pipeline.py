@@ -18,11 +18,6 @@ load_dotenv()
 # Access the Llama API token
 LLAMA_API_TOKEN = os.getenv("LLAMA_API_TOKEN")
 
-# Flags for which LLMs to use
-USE_LLAMA = True
-USE_MISTRAL = False
-USE_FALCON = False
-
 # Define max_length multiplier for LLM prompts
 MAX_LENGTH_MULTIPLIER = 2
 
@@ -67,8 +62,8 @@ def translate_entities(entities, target_lang):
 # Initialize the Llama API
 llama = LlamaAPI(LLAMA_API_TOKEN)
 
-# llama3.3-70b
-def llama_translate(prompt, max_tokens, model="mixtral-8x7b-instruct"):
+# mixtral-8x7b-instruct
+def mistral_translate(prompt, max_tokens, model="mixtral-8x7b-instruct"):
     """Function to interact with the Llama API for translation."""
     api_request_json = {
         "model": model,
@@ -142,7 +137,6 @@ def calculate_chrf(ground_truth_translation, translations, n_value=6):
 def run_pipeline(target_lang, results_file):
     # Load datasets
     datasets = load_all_datasets()
-    datanames = ["Law", "Medical"]
 
     # Load NLP model
     nlp = load_spacy_model()
@@ -150,8 +144,9 @@ def run_pipeline(target_lang, results_file):
     # Google Translate abbreviations
     lang_abbrs = {"Simplified Chinese": "zh-CN", "French": "fr"}
 
-    for dataname, dataset in zip(datanames, datasets):
-        progress_bar = tqdm(dataset[:5], desc=f"Processing {dataname}", unit="text")
+    cur_dataset = [datasets[dataset_index]]
+    for dataset in cur_dataset:
+        progress_bar = tqdm(dataset[5:11], desc=f"Processing {dataset_index}", unit="text")
         for text in progress_bar:
             text = " ".join(text.split()[:50])  # Truncate to the first 50 words
             entities = extract_entities(nlp, text)
@@ -161,7 +156,7 @@ def run_pipeline(target_lang, results_file):
             for _ in range(K_HYPERPARAMETER):
                 prompt = f"Please return only the answer and nothing else. Translate the following text to {target_lang}: {text}"
                 max_length = len(text) * MAX_LENGTH_MULTIPLIER
-                regular_translations.append(llama_translate(prompt, max_length))
+                regular_translations.append(mistral_translate(prompt, max_length))
 
             # LEAP translations
             leap_translations = []
@@ -171,12 +166,7 @@ def run_pipeline(target_lang, results_file):
             for _ in range(K_HYPERPARAMETER):
                 prompt = f"Please return only the answer and nothing else. Translate the following text to {target_lang} using these mappings {str(entities)}: {text}"
                 max_length = len(text) * MAX_LENGTH_MULTIPLIER
-                leap_translations.append(llama_translate(prompt, max_length))
-
-            print("TEXT: ", text)
-            print("ENTITY MAPPING: ", entity_mapping)
-            print("REGULAR TRANSLATIONS: ", regular_translations)
-            print("LEAP TRANSLATIONS: ", leap_translations)
+                leap_translations.append(mistral_translate(prompt, max_length))
 
             # JTC scores
             regular_jtc_score = calculate_JTC(regular_translations, text, entity_mapping)
@@ -191,9 +181,12 @@ def run_pipeline(target_lang, results_file):
             leap_chrf = calculate_chrf(ground_truth_translation, leap_translations)
             with open(results_file, mode='a', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
-                writer.writerow([dataname, regular_jtc_score, leap_jtc_score, regular_jaccard_score, leap_jaccard_score, regular_chrf, leap_chrf])
+                writer.writerow([regular_jtc_score, leap_jtc_score, regular_jaccard_score, leap_jaccard_score, regular_chrf, leap_chrf])
 
 
 if __name__ == "__main__":
-    run_pipeline("Simplified Chinese", "0.05_0.5_0.5_mistral_chinese_translations.csv")
-    run_pipeline("French", "0.05_0.5_0.5_new_mistral_french_translations.csv")
+    for target_lang in ["Simplified Chinese", "French"]:
+        for dataset_index in [0, 1]:
+            run_pipeline(target_lang=target_lang,
+                        dataset_index=dataset_index, # 0 is Law, 1 is Medical
+                        results_file=f"mistral_{target_lang}_{dataset_index}_results.csv")

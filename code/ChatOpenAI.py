@@ -137,8 +137,8 @@ def run_pipeline(target_lang, dataset_index=0, results_file="results.csv"):
             # regular text translation
             regular_translations = []
             for k in range(K_HYPERPARAMETER):
-                prompt = f"Translate the following text to {target_lang}: {text}.\
-                           Please return only the translation and nothing else."
+                prompt = f"Please return only the answer and nothing else.\
+                           Translate the following text to {target_lang}: {text}."
                 response = llm_model.invoke(prompt)
                 print("\nGenerated Response:", response.content)
                 regular_translations.append(response.content)
@@ -146,9 +146,9 @@ def run_pipeline(target_lang, dataset_index=0, results_file="results.csv"):
             # LEAP text translation
             leap_translations = []
             for k in range(K_HYPERPARAMETER):
-                prompt = f"Translate the following text to {target_lang}\
-                    using these mappings {str(named_entities_translations)}: {text}.\
-                    Please return only the translation and nothing else."
+                prompt = f"Please return only the answer and nothing else.\
+                    Translate the following text to {target_lang}\
+                    using these mappings {str(named_entities_translations)}: {text}."
                 response = llm_model.invoke(prompt)
                 print("\nGenerated Response (LEAP):", response.content)
                 leap_translations.append(response.content)
