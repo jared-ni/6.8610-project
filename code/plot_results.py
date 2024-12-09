@@ -41,6 +41,12 @@ def plot_bars(file1, file2, file3, dataset, lang):
         ax.set_title(f'Average {metric_name} ({dataset} - {lang})')
         ax.set_xticks([p + width/2 for p in x])
         ax.set_xticklabels(models)
+        if metric_name == "JTC_Score":
+            ax.set_ylim(0, 1)
+        elif metric_name == "Jaccard_Score":
+            ax.set_ylim(0, 1)
+        else:  
+            ax.set_ylim(0, 5.5)
         ax.legend()
 
         # Display the plot
@@ -71,10 +77,10 @@ def plot_histogram(csv_file, model, lang, dataset):
     plt.tight_layout()
     plt.savefig(f'histogram_{dataset}_{lang}_{model}.png')
 
-# plot_bars('../results/claude_French_0_results.csv', '../results/gpt4o_French_0_results.csv', '../results/mistral_French_0_results.csv', 'Law', 'French')
-# plot_bars('../results/claude_French_1_results.csv', '../results/gpt4o_French_1_results.csv', '../results/mistral_French_1_results.csv', 'Medical', 'French')
-# plot_bars('../results/claude_Simplified_Chinese_0_results.csv', '../results/gpt4o_Simplified_Chinese_0_results.csv', '../results/mistral_Simplified_Chinese_0_results.csv', 'Law', 'Simplified Chinese')
-# plot_bars('../results/claude_Simplified_Chinese_1_results.csv', '../results/gpt4o_Simplified_Chinese_1_results.csv', '../results/mistral_Simplified_Chinese_1_results.csv', 'Medical', 'Simplified Chinese')
+plot_bars('../results/claude_French_0_results.csv', '../results/gpt4o_French_0_results.csv', '../results/mistral_French_0_results.csv', 'Law', 'French')
+plot_bars('../results/claude_French_1_results.csv', '../results/gpt4o_French_1_results.csv', '../results/mistral_French_1_results.csv', 'Medical', 'French')
+plot_bars('../results/claude_Simplified_Chinese_0_results.csv', '../results/gpt4o_Simplified_Chinese_0_results.csv', '../results/mistral_Simplified_Chinese_0_results.csv', 'Law', 'Simplified Chinese')
+plot_bars('../results/claude_Simplified_Chinese_1_results.csv', '../results/gpt4o_Simplified_Chinese_1_results.csv', '../results/mistral_Simplified_Chinese_1_results.csv', 'Medical', 'Simplified Chinese')
 # plot_histogram('../results/claude_French_0_results.csv', 'Claude', 'French', 'Law')
 # plot_histogram('../results/claude_French_1_results.csv', 'Claude', 'French', 'Medical')
 # plot_histogram('../results/gpt4o_French_0_results.csv', 'GPT4o', 'French', 'Law')
