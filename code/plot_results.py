@@ -13,9 +13,9 @@ def plot_bars(file1, file2, file3, dataset, lang):
 
     # Initialize lists to store the averages for each metric
     metrics = {
-        "JTC_Score": ["Regular_JTC_Score", "LEAP_JTC_Score"],
-        "Jaccard_Score": ["Regular_Jaccard_Score", "LEAP_Jaccard_Score"],
-        "chrF": ["Regular_chrF", "LEAP_chrF"]
+        "JTC Score": ["Regular_JTC_Score", "LEAP_JTC_Score"],
+        "Jaccard Score": ["Regular_Jaccard_Score", "LEAP_Jaccard_Score"],
+        "chrF++": ["Regular_chrF", "LEAP_chrF"]
     }
 
     # Plotting
@@ -32,22 +32,23 @@ def plot_bars(file1, file2, file3, dataset, lang):
         width = 0.35
 
         fig, ax = plt.subplots()
-        ax.bar(x, regular_means, width, label=f"Regular {metric_name}", color="skyblue")
-        ax.bar([p + width for p in x], leap_means, width, label=f"LEAP {metric_name}", color="steelblue")
+        ax.bar(x, regular_means, width, label=f"Regular", color="skyblue")
+        ax.bar([p + width for p in x], leap_means, width, label=f"LEAP", color="steelblue")
 
         # Set plot details
-        ax.set_xlabel('Models')
-        ax.set_ylabel(f'Average {metric_name}')
-        ax.set_title(f'Average {metric_name} ({dataset} - {lang})')
+        ax.set_xlabel('Models', fontsize=16)
+        ax.set_ylabel(f'Average {metric_name}', fontsize=16)
+        ax.set_title(f'Average {metric_name} ({dataset} - {lang})', fontsize=16)
         ax.set_xticks([p + width/2 for p in x])
-        ax.set_xticklabels(models)
-        if metric_name == "JTC_Score":
+        ax.set_xticklabels(models, fontsize=14)
+        ax.tick_params(axis='both', which='major', labelsize=14)
+        if metric_name == "JTC Score":
             ax.set_ylim(0, 1)
-        elif metric_name == "Jaccard_Score":
+        elif metric_name == "Jaccard Score":
             ax.set_ylim(0, 1)
         else:  
             ax.set_ylim(0, 5.5)
-        ax.legend()
+        ax.legend(fontsize=14)
 
         # Display the plot
         plt.tight_layout()
@@ -64,32 +65,33 @@ def plot_histogram(csv_file, model, lang, dataset):
     
     # Plot overlapping histograms
     plt.figure(figsize=(8, 6))
-    plt.hist(regular_scores, bins=50, alpha=0.6, label="Regular JTC Scores", color="blue")
-    plt.hist(leap_scores, bins=50, alpha=0.6, label="LEAP JTC Scores", color="red")
+    plt.hist(regular_scores, bins=50, alpha=0.6, label="Regular", color="blue")
+    plt.hist(leap_scores, bins=50, alpha=0.6, label="LEAP", color="red")
     
     # Set plot details
-    plt.title(f"{model} Regular and LEAP JTC Scores ({dataset} - {lang})")
-    plt.xlabel("JTC Scores")
-    plt.ylabel("Frequency")
-    plt.legend(loc="upper right")
+    plt.title(f"{model} Regular and LEAP JTC Scores ({dataset} - {lang})", fontsize=16)
+    plt.xlabel("JTC Scores", fontsize=16)
+    plt.ylabel("Frequency", fontsize=16)
+    plt.tick_params(axis='both', which='major', labelsize=14)
+    plt.legend(loc="upper right", fontsize=14)
     
     # Display the plot
     plt.tight_layout()
     plt.savefig(f'histogram_{dataset}_{lang}_{model}.png')
 
-plot_bars('../results/claude_French_0_results.csv', '../results/gpt4o_French_0_results.csv', '../results/mistral_French_0_results.csv', 'Law', 'French')
-plot_bars('../results/claude_French_1_results.csv', '../results/gpt4o_French_1_results.csv', '../results/mistral_French_1_results.csv', 'Medical', 'French')
-plot_bars('../results/claude_Simplified_Chinese_0_results.csv', '../results/gpt4o_Simplified_Chinese_0_results.csv', '../results/mistral_Simplified_Chinese_0_results.csv', 'Law', 'Simplified Chinese')
-plot_bars('../results/claude_Simplified_Chinese_1_results.csv', '../results/gpt4o_Simplified_Chinese_1_results.csv', '../results/mistral_Simplified_Chinese_1_results.csv', 'Medical', 'Simplified Chinese')
+# plot_bars('../results/claude_French_0_results.csv', '../results/gpt4o_French_0_results.csv', '../results/mistral_French_0_results.csv', 'Law', 'French')
+# plot_bars('../results/claude_French_1_results.csv', '../results/gpt4o_French_1_results.csv', '../results/mistral_French_1_results.csv', 'Medical', 'French')
+# plot_bars('../results/claude_Simplified_Chinese_0_results.csv', '../results/gpt4o_Simplified_Chinese_0_results.csv', '../results/mistral_Simplified_Chinese_0_results.csv', 'Law', 'Chinese')
+# plot_bars('../results/claude_Simplified_Chinese_1_results.csv', '../results/gpt4o_Simplified_Chinese_1_results.csv', '../results/mistral_Simplified_Chinese_1_results.csv', 'Medical', 'Chinese')
 # plot_histogram('../results/claude_French_0_results.csv', 'Claude', 'French', 'Law')
 # plot_histogram('../results/claude_French_1_results.csv', 'Claude', 'French', 'Medical')
 # plot_histogram('../results/gpt4o_French_0_results.csv', 'GPT4o', 'French', 'Law')
 # plot_histogram('../results/gpt4o_French_1_results.csv', 'GPT4o', 'French', 'Medical')
 # plot_histogram('../results/mistral_French_0_results.csv', 'Mistral', 'French', 'Law')
 # plot_histogram('../results/mistral_French_1_results.csv', 'Mistral', 'French', 'Medical')
-# plot_histogram('../results/claude_Simplified_Chinese_0_results.csv', 'Claude', 'Simplified Chinese', 'Law')
-# plot_histogram('../results/claude_Simplified_Chinese_1_results.csv', 'Claude', 'Simplified Chinese', 'Medical')
-# plot_histogram('../results/gpt4o_Simplified_Chinese_0_results.csv', 'GPT4o', 'Simplified Chinese', 'Law')
-# plot_histogram('../results/gpt4o_Simplified_Chinese_1_results.csv', 'GPT4o', 'Simplified Chinese', 'Medical')
-# plot_histogram('../results/mistral_Simplified_Chinese_0_results.csv', 'Mistral', 'Simplified Chinese', 'Law')
-# plot_histogram('../results/mistral_Simplified_Chinese_1_results.csv', 'Mistral', 'Simplified Chinese', 'Medical')
+# plot_histogram('../results/claude_Simplified_Chinese_0_results.csv', 'Claude', 'Chinese', 'Law')
+# plot_histogram('../results/claude_Simplified_Chinese_1_results.csv', 'Claude', 'Chinese', 'Medical')
+# plot_histogram('../results/gpt4o_Simplified_Chinese_0_results.csv', 'GPT4o', 'Chinese', 'Law')
+# plot_histogram('../results/gpt4o_Simplified_Chinese_1_results.csv', 'GPT4o', 'Chinese', 'Medical')
+# plot_histogram('../results/mistral_Simplified_Chinese_0_results.csv', 'Mistral', 'Chinese', 'Law')
+# plot_histogram('../results/mistral_Simplified_Chinese_1_results.csv', 'Mistral', 'Chinese', 'Medical')
