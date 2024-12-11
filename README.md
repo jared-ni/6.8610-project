@@ -30,3 +30,6 @@ To run the LEAP pipeline for Mistral and translate from English to Chinese:
 python mistral_pipeline_chinese.py
 ```
 To run the LEAP pipeline for Claude: run the Python notebook ```claude_pipeline.ipynb```
+
+![LEAP](https://github.com/user-attachments/assets/07abe3cd-4984-46c2-a369-53631a9dcd3a)
+
